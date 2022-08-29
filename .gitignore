@@ -7,7 +7,7 @@
 /.release
 /.tarballs
 /vendor
-
+.vscode
 !.golangci.yml
 !/cli/testdata/*.yml
 !/cli/config/testdata/*.yml
