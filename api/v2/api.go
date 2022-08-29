@@ -37,6 +37,7 @@ import (
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations"
 	alert_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/alert"
 	alertgroup_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/alertgroup"
+	alertsls_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/alertsls"
 	general_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/general"
 	receiver_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/receiver"
 	silence_ops "github.com/prometheus/alertmanager/api/v2/restapi/operations/silence"
@@ -119,6 +120,7 @@ func NewAPI(
 	openAPI.AlertGetAlertsHandler = alert_ops.GetAlertsHandlerFunc(api.getAlertsHandler)
 	openAPI.AlertPostAlertsHandler = alert_ops.PostAlertsHandlerFunc(api.postAlertsHandler)
 	openAPI.AlertgroupGetAlertGroupsHandler = alertgroup_ops.GetAlertGroupsHandlerFunc(api.getAlertGroupsHandler)
+	openAPI.AlertslsPostslsAlertsHandler = alertsls_ops.PostslsAlertsHandlerFunc(api.postslsAlertsHandler)
 	openAPI.GeneralGetStatusHandler = general_ops.GetStatusHandlerFunc(api.getStatusHandler)
 	openAPI.ReceiverGetReceiversHandler = receiver_ops.GetReceiversHandlerFunc(api.getReceiversHandler)
 	openAPI.SilenceDeleteSilenceHandler = silence_ops.DeleteSilenceHandlerFunc(api.deleteSilenceHandler)
@@ -288,7 +290,67 @@ func (api *API) getAlertsHandler(params alert_ops.GetAlertsParams) middleware.Re
 
 	return alert_ops.NewGetAlertsOK().WithPayload(res)
 }
+func (api *API) postslsAlertsHandler(params alertsls_ops.PostslsAlertsParams) middleware.Responder {
+	logger := api.requestLogger(params.HTTPRequest)
 
+	alerts := OpenAPISlsAlertsToAlerts(params.Alerts)
+	now := time.Now()
+
+	api.mtx.RLock()
+	resolveTimeout := time.Duration(api.alertmanagerConfig.Global.ResolveTimeout)
+	api.mtx.RUnlock()
+
+	for _, alert := range alerts {
+		alert.UpdatedAt = now
+
+		// Ensure StartsAt is set.
+		if alert.StartsAt.IsZero() {
+			if alert.EndsAt.IsZero() {
+				alert.StartsAt = now
+			} else {
+				alert.StartsAt = alert.EndsAt
+			}
+		}
+		// If no end time is defined, set a timeout after which an alert
+		// is marked resolved if it is not updated.
+		if alert.EndsAt.IsZero() {
+			alert.Timeout = true
+			alert.EndsAt = now.Add(resolveTimeout)
+		}
+		if alert.EndsAt.After(time.Now()) {
+			api.m.Firing().Inc()
+		} else {
+			api.m.Resolved().Inc()
+		}
+	}
+
+	// Make a best effort to insert all alerts that are valid.
+	var (
+		validAlerts    = make([]*types.Alert, 0, len(alerts))
+		validationErrs = &types.MultiError{}
+	)
+	for _, a := range alerts {
+		removeEmptyLabels(a.Labels)
+
+		if err := a.Validate(); err != nil {
+			validationErrs.Add(err)
+			api.m.Invalid().Inc()
+			continue
+		}
+		validAlerts = append(validAlerts, a)
+	}
+	if err := api.alerts.Put(validAlerts...); err != nil {
+		level.Error(logger).Log("msg", "Failed to create alerts", "err", err)
+		return alert_ops.NewPostAlertsInternalServerError().WithPayload(err.Error())
+	}
+
+	if validationErrs.Len() > 0 {
+		level.Error(logger).Log("msg", "Failed to validate alerts", "err", validationErrs.Error())
+		return alert_ops.NewPostAlertsBadRequest().WithPayload(validationErrs.Error())
+	}
+
+	return alertsls_ops.NewPostslsAlertsOK()
+}
 func (api *API) postAlertsHandler(params alert_ops.PostAlertsParams) middleware.Responder {
 	logger := api.requestLogger(params.HTTPRequest)
 

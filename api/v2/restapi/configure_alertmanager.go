@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alert"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alertgroup"
+	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alertsls"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/general"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/receiver"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/silence"
@@ -95,6 +96,11 @@ func configureAPI(api *operations.AlertmanagerAPI) http.Handler {
 	if api.SilencePostSilencesHandler == nil {
 		api.SilencePostSilencesHandler = silence.PostSilencesHandlerFunc(func(params silence.PostSilencesParams) middleware.Responder {
 			return middleware.NotImplemented("operation silence.PostSilences has not yet been implemented")
+		})
+	}
+	if api.AlertslsPostslsAlertsHandler == nil {
+		api.AlertslsPostslsAlertsHandler = alertsls.PostslsAlertsHandlerFunc(func(params alertsls.PostslsAlertsParams) middleware.Responder {
+			return middleware.NotImplemented("operation alertsls.PostslsAlerts has not yet been implemented")
 		})
 	}
 

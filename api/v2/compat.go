@@ -158,6 +158,25 @@ func AlertToOpenAPIAlert(alert *types.Alert, status types.AlertStatus, receivers
 	return aa
 }
 
+// OpenAPISlsAlertsToAlerts converts open_api_models.PostslsableAlerts to []*types.Alert.
+func OpenAPISlsAlertsToAlerts(apiAlerts *open_api_models.PostableSlsAlerts) []*types.Alert {
+	alerts := []*types.Alert{}
+	for _, apiAlert := range apiAlerts.Results {
+		alert := types.Alert{
+			Alert: prometheus_model.Alert{
+				Labels:       APILabelSetToModelLabelSet(apiAlert),
+				Annotations:  APILabelSetToModelLabelSet(apiAlerts.Annotations),
+				StartsAt:     time.Time(apiAlerts.StartsAt),
+				EndsAt:       time.Time(apiAlerts.EndsAt),
+				GeneratorURL: string(apiAlerts.GeneratorURL),
+			},
+		}
+		alerts = append(alerts, &alert)
+	}
+
+	return alerts
+}
+
 // OpenAPIAlertsToAlerts converts open_api_models.PostableAlerts to []*types.Alert.
 func OpenAPIAlertsToAlerts(apiAlerts open_api_models.PostableAlerts) []*types.Alert {
 	alerts := []*types.Alert{}

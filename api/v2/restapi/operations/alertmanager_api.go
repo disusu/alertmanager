@@ -35,6 +35,7 @@ import (
 
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alert"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alertgroup"
+	"github.com/prometheus/alertmanager/api/v2/restapi/operations/alertsls"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/general"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/receiver"
 	"github.com/prometheus/alertmanager/api/v2/restapi/operations/silence"
@@ -88,6 +89,9 @@ func NewAlertmanagerAPI(spec *loads.Document) *AlertmanagerAPI {
 		SilencePostSilencesHandler: silence.PostSilencesHandlerFunc(func(params silence.PostSilencesParams) middleware.Responder {
 			return middleware.NotImplemented("operation silence.PostSilences has not yet been implemented")
 		}),
+		AlertslsPostslsAlertsHandler: alertsls.PostslsAlertsHandlerFunc(func(params alertsls.PostslsAlertsParams) middleware.Responder {
+			return middleware.NotImplemented("operation alertsls.PostslsAlerts has not yet been implemented")
+		}),
 	}
 }
 
@@ -139,6 +143,8 @@ type AlertmanagerAPI struct {
 	AlertPostAlertsHandler alert.PostAlertsHandler
 	// SilencePostSilencesHandler sets the operation handler for the post silences operation
 	SilencePostSilencesHandler silence.PostSilencesHandler
+	// AlertslsPostslsAlertsHandler sets the operation handler for the postsls alerts operation
+	AlertslsPostslsAlertsHandler alertsls.PostslsAlertsHandler
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
 	ServeError func(http.ResponseWriter, *http.Request, error)
@@ -231,6 +237,9 @@ func (o *AlertmanagerAPI) Validate() error {
 	}
 	if o.SilencePostSilencesHandler == nil {
 		unregistered = append(unregistered, "silence.PostSilencesHandler")
+	}
+	if o.AlertslsPostslsAlertsHandler == nil {
+		unregistered = append(unregistered, "alertsls.PostslsAlertsHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -356,6 +365,10 @@ func (o *AlertmanagerAPI) initHandlerCache() {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
 	o.handlers["POST"]["/silences"] = silence.NewPostSilences(o.context, o.SilencePostSilencesHandler)
+	if o.handlers["POST"] == nil {
+		o.handlers["POST"] = make(map[string]http.Handler)
+	}
+	o.handlers["POST"]["/alerts/sls"] = alertsls.NewPostslsAlerts(o.context, o.AlertslsPostslsAlertsHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

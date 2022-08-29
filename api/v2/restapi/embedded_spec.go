@@ -210,6 +210,37 @@ func init() {
         }
       }
     },
+    "/alerts/sls": {
+      "post": {
+        "description": "Create new sls Alerts",
+        "tags": [
+          "alertsls"
+        ],
+        "operationId": "postslsAlerts",
+        "parameters": [
+          {
+            "description": "The sls alerts to create",
+            "name": "alerts",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/postableSlsAlerts"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Create alerts response"
+          },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/responses/InternalServerError"
+          }
+        }
+      }
+    },
     "/receivers": {
       "get": {
         "description": "Get list of all receivers (name of notification integrations)",
@@ -694,6 +725,32 @@ func init() {
         }
       ]
     },
+    "postableSlsAlerts": {
+      "type": "object",
+      "properties": {
+        "annotations": {
+          "$ref": "#/definitions/labelSet"
+        },
+        "endsAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generatorURL": {
+          "type": "string",
+          "format": "uri"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/labelSet"
+          }
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "receiver": {
       "type": "object",
       "required": [
@@ -996,6 +1053,43 @@ func init() {
             "schema": {
               "$ref": "#/definitions/alertGroups"
             }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/alerts/sls": {
+      "post": {
+        "description": "Create new sls Alerts",
+        "tags": [
+          "alertsls"
+        ],
+        "operationId": "postslsAlerts",
+        "parameters": [
+          {
+            "description": "The sls alerts to create",
+            "name": "alerts",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/postableSlsAlerts"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Create alerts response"
           },
           "400": {
             "description": "Bad request",
@@ -1507,6 +1601,32 @@ func init() {
           "$ref": "#/definitions/silence"
         }
       ]
+    },
+    "postableSlsAlerts": {
+      "type": "object",
+      "properties": {
+        "annotations": {
+          "$ref": "#/definitions/labelSet"
+        },
+        "endsAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generatorURL": {
+          "type": "string",
+          "format": "uri"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/labelSet"
+          }
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     },
     "receiver": {
       "type": "object",

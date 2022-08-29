@@ -197,6 +197,26 @@ paths:
           $ref: '#/responses/InternalServerError'
         '400':
           $ref: '#/responses/BadRequest'
+  /alerts/sls:
+    post:
+      tags:
+        - alertsls
+      operationId: postslsAlerts
+      description: Create new sls Alerts
+      parameters:
+        - in: body
+          name: alerts
+          description: The sls alerts to create
+          required: true
+          schema:
+            $ref: '#/definitions/postableSlsAlerts'
+      responses:
+        '200':
+          description: Create alerts response
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequest'
   /alerts/groups:
     get:
       tags:
@@ -447,6 +467,24 @@ definitions:
           - annotations
           - status
       - $ref: '#/definitions/alert'
+  postableSlsAlerts:
+    type: object
+    properties:
+      startsAt:
+        type: string
+        format: date-time
+      endsAt:
+        type: string
+        format: date-time
+      results:
+        type: array
+        items:
+          $ref: '#/definitions/labelSet'
+      annotations:
+        $ref: '#/definitions/labelSet'
+      generatorURL:
+        type: string
+        format: uri
   postableAlerts:
     type: array
     items:
