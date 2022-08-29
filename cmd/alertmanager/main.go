@@ -526,7 +526,7 @@ func run() int {
 
 	webReload := make(chan chan error)
 
-	ui.Register(router, webReload, logger)
+	ui.Register(router, webReload, promlogConfig, logger)
 
 	mux := api.Register(router, *routePrefix)
 

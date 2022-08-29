@@ -21,13 +21,14 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/route"
 
 	"github.com/prometheus/alertmanager/asset"
 )
 
 // Register registers handlers to serve files for the web interface.
-func Register(r *route.Router, reloadCh chan<- chan error, logger log.Logger) {
+func Register(r *route.Router, reloadCh chan<- chan error, promlogConfig promlog.Config, logger log.Logger) {
 	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
@@ -62,16 +63,6 @@ func Register(r *route.Router, reloadCh chan<- chan error, logger log.Logger) {
 		fs.ServeHTTP(w, req)
 	})
 
-	r.Post("/-/reload", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errc := make(chan error)
-		defer close(errc)
-
-		reloadCh <- errc
-		if err := <-errc; err != nil {
-			http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
-		}
-	}))
-
 	r.Get("/-/healthy", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
@@ -80,9 +71,20 @@ func Register(r *route.Router, reloadCh chan<- chan error, logger log.Logger) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	}))
+	if promlogConfig.Level.String() == "debug" {
+		r.Post("/-/reload", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			errc := make(chan error)
+			defer close(errc)
 
-	r.Get("/debug/*subpath", http.DefaultServeMux.ServeHTTP)
-	r.Post("/debug/*subpath", http.DefaultServeMux.ServeHTTP)
+			reloadCh <- errc
+			if err := <-errc; err != nil {
+				http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
+			}
+		}))
+
+		r.Get("/debug/*subpath", http.DefaultServeMux.ServeHTTP)
+		r.Post("/debug/*subpath", http.DefaultServeMux.ServeHTTP)
+	}
 }
 
 func disableCaching(w http.ResponseWriter) {
