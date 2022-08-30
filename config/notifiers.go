@@ -104,6 +104,13 @@ var (
 		ToTag:   `{{ template "wechat.default.to_tag" . }}`,
 		AgentID: `{{ template "wechat.default.agent_id" . }}`,
 	}
+	// DefaultSwarmRobotConfig defines default values for SwarmRobot configurations.
+	DefaultSwarmRobotConfig = SwarmRobotConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: true,
+		},
+		Message: `{{ template "wechat.default.message" . }}`,
+	}
 
 	// DefaultVictorOpsConfig defines default values for VictorOps configurations.
 	DefaultVictorOpsConfig = VictorOpsConfig{
@@ -418,6 +425,43 @@ func (c *WebhookConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if c.URL.Scheme != "https" && c.URL.Scheme != "http" {
 		return fmt.Errorf("scheme required for webhook url")
 	}
+	return nil
+}
+
+// SwarmRobotConfig configures notifications via Wechat.
+type SwarmRobotConfig struct {
+	NotifierConfig `yaml:",inline" json:",inline"`
+
+	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+
+	Message             string `yaml:"message,omitempty" json:"message,omitempty"`
+	APIURL              *URL   `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+	APIKey              Secret `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+	MessageType         string `yaml:"message_type,omitempty" json:"message_type,omitempty"`
+	MentionedList       string `yaml:"mentioned_list" json:"mentioned_list"`
+	MentionedMobileList string `yaml:"mentioned_mobile_list" json:"mentioned_mobile_list"`
+}
+
+const swarmRobotValidTypesRe = `^(text|markdown)$`
+
+var swarmRobotTypeMatcher = regexp.MustCompile(swarmRobotValidTypesRe)
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *SwarmRobotConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultSwarmRobotConfig
+	type plain SwarmRobotConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+
+	if c.MessageType == "" {
+		c.MessageType = "text"
+	}
+
+	if !swarmRobotTypeMatcher.MatchString(c.MessageType) {
+		return errors.Errorf("swarmRobot message type %q does not match valid options %s", c.MessageType, swarmRobotValidTypesRe)
+	}
+
 	return nil
 }
 

@@ -1,0 +1,51 @@
+{{ define "swarmrobot.text.message" }}
+{{ if gt (len .Alerts.Firing) 0 -}}
+{{ range .Alerts -}}
+=========== 监控告警===========
+告警程序: Alertmanager
+告警类型: {{ .Labels.alertname }}
+告警级别: {{ .Labels.status }} 
+告警状态: {{ .Status }} 
+故障主机: {{ .Labels.instance }} 
+告警详情：{{ .Annotations.summary }}
+主机标签：{{ range .Labels.SortedPairs }}[{{ .Name }}:{{ .Value }}]{{ end }}
+故障时间：{{ .StartsAt.Format "2006-01-02 15:04:05" }}
+============= end ==============
+{{- end }}
+{{- end }}
+{{ if gt (len .Alerts.Resolved) 0 -}}
+{{ range .Alerts -}}
+=========== 监控恢复===========
+告警程序: Alertmanager
+告警类型: {{ .Labels.alertname }}
+告警级别: {{ .Labels.status }} 
+告警状态: {{ .Status }} 
+故障主机: {{ .Labels.instance }} 
+告警详情：{{ .Annotations.summary }}
+主机标签：{{ range .Labels.SortedPairs }}[{{ .Name }}:{{ .Value }}]{{ end }}
+故障时间：{{ .StartsAt.Format "2006-01-02 15:04:05" }}
+恢复时间：{{ .EndsAt.Format "2006-01-02 15:04:05" }}
+============= end ==============
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ define "swarmrobot.markdown.message" }}
+{{ if gt (len .Alerts.Firing) 0 -}}
+{{ range .Alerts -}}
+<font color="#FF0000">{{ .Annotations.summary }}</font>
+{{ range .Labels.SortedPairs }}>{{ .Name }}: <font color="comment">{{ .Value }}</font>
+{{ end -}}
+>故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{- end }}
+{{- end }}
+{{ if gt (len .Alerts.Resolved) 0 -}}
+{{ range .Alerts -}}
+<font color="#006600">{{ .Annotations.summary }}</font>
+{{ range .Labels.SortedPairs }}>{{ .Name }}: <font color="comment">{{ .Value }}</font>
+{{ end -}}
+>故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+>恢复时间: <font color="comment">{{ .EndsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{- end }}
+{{- end }}
+{{- end }}

@@ -239,6 +239,9 @@ func resolveFilepaths(baseDir string, cfg *Config) {
 		for _, cfg := range receiver.WebhookConfigs {
 			cfg.HTTPConfig.SetDirectory(baseDir)
 		}
+		for _, cfg := range receiver.SwarmRobotConfigs {
+			cfg.HTTPConfig.SetDirectory(baseDir)
+		}
 		for _, cfg := range receiver.WechatConfigs {
 			cfg.HTTPConfig.SetDirectory(baseDir)
 		}
@@ -426,6 +429,22 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				}
 				ogc.APIKey = c.Global.OpsGenieAPIKey
 				ogc.APIKeyFile = c.Global.OpsGenieAPIKeyFile
+			}
+		}
+		for _, src := range rcv.SwarmRobotConfigs {
+			if src.HTTPConfig == nil {
+				src.HTTPConfig = c.Global.HTTPConfig
+			}
+
+			if src.APIURL == nil {
+				if c.Global.SwarmRobotAPIURL == nil {
+					return fmt.Errorf("no global SwarmRobot URL set")
+				}
+				src.APIURL = c.Global.SwarmRobotAPIURL
+			}
+
+			if !strings.HasSuffix(src.APIURL.Path, "/") {
+				src.APIURL.Path += "/"
 			}
 		}
 		for _, wcc := range rcv.WechatConfigs {
@@ -710,6 +729,7 @@ type GlobalConfig struct {
 	WeChatAPIURL       *URL       `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
 	WeChatAPISecret    Secret     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
 	WeChatAPICorpID    string     `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
+	SwarmRobotAPIURL   *URL       `yaml:"swarmrobot_api_url,omitempty" json:"swarmrobot_api_url,omitempty"`
 	VictorOpsAPIURL    *URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
 	VictorOpsAPIKey    Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
 	TelegramAPIUrl     *URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
@@ -844,16 +864,17 @@ type Receiver struct {
 	// A unique identifier for this receiver.
 	Name string `yaml:"name" json:"name"`
 
-	EmailConfigs     []*EmailConfig     `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
-	PagerdutyConfigs []*PagerdutyConfig `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
-	SlackConfigs     []*SlackConfig     `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
-	WebhookConfigs   []*WebhookConfig   `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
-	OpsGenieConfigs  []*OpsGenieConfig  `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
-	WechatConfigs    []*WechatConfig    `yaml:"wechat_configs,omitempty" json:"wechat_configs,omitempty"`
-	PushoverConfigs  []*PushoverConfig  `yaml:"pushover_configs,omitempty" json:"pushover_configs,omitempty"`
-	VictorOpsConfigs []*VictorOpsConfig `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`
-	SNSConfigs       []*SNSConfig       `yaml:"sns_configs,omitempty" json:"sns_configs,omitempty"`
-	TelegramConfigs  []*TelegramConfig  `yaml:"telegram_configs,omitempty" json:"telegram_configs,omitempty"`
+	EmailConfigs      []*EmailConfig      `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
+	PagerdutyConfigs  []*PagerdutyConfig  `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
+	SlackConfigs      []*SlackConfig      `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
+	WebhookConfigs    []*WebhookConfig    `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
+	OpsGenieConfigs   []*OpsGenieConfig   `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
+	WechatConfigs     []*WechatConfig     `yaml:"wechat_configs,omitempty" json:"wechat_configs,omitempty"`
+	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
+	PushoverConfigs   []*PushoverConfig   `yaml:"pushover_configs,omitempty" json:"pushover_configs,omitempty"`
+	VictorOpsConfigs  []*VictorOpsConfig  `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`
+	SNSConfigs        []*SNSConfig        `yaml:"sns_configs,omitempty" json:"sns_configs,omitempty"`
+	TelegramConfigs   []*TelegramConfig   `yaml:"telegram_configs,omitempty" json:"telegram_configs,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Receiver.
