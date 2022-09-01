@@ -70,6 +70,18 @@ func New(c *config.SwarmRobotConfig, t *template.Template, l log.Logger, httpOpt
 	return &Notifier{conf: c, tmpl: t, logger: l, client: client}, nil
 }
 
+// truncate a string to fit the given bytes length.
+func truncate(s string, n int) (string, bool) {
+	r := []byte(s)
+	if len(r) <= n {
+		return s, false
+	}
+	if n <= 3 {
+		return string(r[:n]), true
+	}
+	return string(r[:n-3]) + "...", true
+}
+
 // Notify implements the Notifier interface.
 func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error) {
 	key, err := notify.ExtractGroupKey(ctx)
@@ -85,9 +97,9 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 		return false, err
 	}
 	//TODO:
-	// limit: 20/min
-	// text-length: 2048 bytes
 	// markdown-length: 4096 bytes
+	// text-length: 2048 bytes
+	// limit: 20/min
 	if len(n.conf.APIKey) == 0 {
 		return false, fmt.Errorf("invalid APIKey")
 	}
@@ -97,12 +109,24 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 	}
 
 	if msg.Type == "markdown" {
+		cnt := tmpl(n.conf.Message)
+		cnt, truncated := truncate(cnt, 4096)
+		level.Debug(n.logger).Log("msg", "message length", "length", len(cnt), "incident", key)
+		if truncated {
+			level.Warn(n.logger).Log("msg", "Truncated message", "truncate_message", cnt, "incident", key)
+		}
 		msg.Markdown = weChatSwarmRobotMarkdownMessageContent{
-			Content: tmpl(n.conf.Message),
+			Content: cnt,
 		}
 	} else {
+		cnt := tmpl(n.conf.Message)
+		cnt, truncated := truncate(cnt, 2048)
+		level.Debug(n.logger).Log("msg", "message length", "length", len(cnt), "incident", key)
+		if truncated {
+			level.Warn(n.logger).Log("msg", "Truncated message", "truncate_message", cnt, "incident", key)
+		}
 		msg.Text = weChatSwarmRobotTextMessageContent{
-			Content:             tmpl(n.conf.Message),
+			Content:             cnt,
 			MentionedList:       n.conf.MentionedList,
 			MentionedMobileList: n.conf.MentionedMobileList,
 		}
@@ -146,6 +170,10 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 	// https://work.weixin.qq.com/api/doc#10649
 	if weResp.Code == 0 {
 		return false, nil
+	}
+	// Interface calls exceeded the limit
+	if weResp.Code == 45009 {
+		return true, errors.New(weResp.Error)
 	}
 
 	return false, errors.New(weResp.Error)

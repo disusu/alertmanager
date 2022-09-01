@@ -1,6 +1,8 @@
 /data/
 /alertmanager
 /amtool
+*.tar.*
+CHANGE.md
 *.yml
 *.yaml
 /.build

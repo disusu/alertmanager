@@ -31,18 +31,19 @@
 {{- end }}
 
 {{ define "swarmrobot.markdown.message" }}
+{{ $delField := stringSlice "count" "ip" -}}
 {{ if gt (len .Alerts.Firing) 0 -}}
-{{ range .Alerts -}}
+{{ range .Alerts }}
 <font color="#FF0000">{{ .Annotations.summary }}</font>
-{{ range .Labels.SortedPairs }}>{{ .Name }}: <font color="comment">{{ .Value }}</font>
+{{ range $k,$v := .Labels.Remove $delField }}>{{ $k }}: <font color="comment">{{ $v }}</font>
 {{ end -}}
 >故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
 {{- end }}
 {{- end }}
 {{ if gt (len .Alerts.Resolved) 0 -}}
-{{ range .Alerts -}}
+{{ range .Alerts }}
 <font color="#006600">{{ .Annotations.summary }}</font>
-{{ range .Labels.SortedPairs }}>{{ .Name }}: <font color="comment">{{ .Value }}</font>
+{{ range $k,$v := .Labels.Remove $delField }}>{{ $k }}: <font color="comment">{{ $v }}</font>
 {{ end -}}
 >故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
 >恢复时间: <font color="comment">{{ .EndsAt.Format "2006-01-02 15:04:05" }}</font> 
