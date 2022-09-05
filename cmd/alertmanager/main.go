@@ -54,6 +54,7 @@ import (
 	"github.com/prometheus/alertmanager/notify/pagerduty"
 	"github.com/prometheus/alertmanager/notify/pushover"
 	"github.com/prometheus/alertmanager/notify/slack"
+	"github.com/prometheus/alertmanager/notify/sms"
 	"github.com/prometheus/alertmanager/notify/sns"
 	"github.com/prometheus/alertmanager/notify/swarmrobot"
 	"github.com/prometheus/alertmanager/notify/telegram"
@@ -161,6 +162,9 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 	}
 	for i, c := range nc.SwarmRobotConfigs {
 		add("swarmrobot", i, c, func(l log.Logger) (notify.Notifier, error) { return swarmrobot.New(c, tmpl, l) })
+	}
+	for i, c := range nc.SMSConfigs {
+		add("sms", i, c, func(l log.Logger) (notify.Notifier, error) { return sms.New(c, tmpl, l) })
 	}
 	for i, c := range nc.SlackConfigs {
 		add("slack", i, c, func(l log.Logger) (notify.Notifier, error) { return slack.New(c, tmpl, l) })

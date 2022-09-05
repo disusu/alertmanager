@@ -104,6 +104,7 @@ var (
 		ToTag:   `{{ template "wechat.default.to_tag" . }}`,
 		AgentID: `{{ template "wechat.default.agent_id" . }}`,
 	}
+
 	// DefaultSwarmRobotConfig defines default values for SwarmRobot configurations.
 	DefaultSwarmRobotConfig = SwarmRobotConfig{
 		NotifierConfig: NotifierConfig{
@@ -112,6 +113,13 @@ var (
 		Message: `{{ template "wechat.default.message" . }}`,
 	}
 
+	// DefaultSMSConfig defines default values for SMS configurations.
+	DefaultSMSConfig = SMSConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: false,
+		},
+		TemplateParam: `{{ template "wechat.default.template_param" . }}`,
+	}
 	// DefaultVictorOpsConfig defines default values for VictorOps configurations.
 	DefaultVictorOpsConfig = VictorOpsConfig{
 		NotifierConfig: NotifierConfig{
@@ -462,6 +470,36 @@ func (c *SwarmRobotConfig) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		return errors.Errorf("swarmRobot message type %q does not match valid options %s", c.MessageType, swarmRobotValidTypesRe)
 	}
 
+	return nil
+}
+
+// SMSConfig configures notifications via a generic SMS.
+type SMSConfig struct {
+	NotifierConfig  `yaml:",inline" json:",inline"`
+	AccessKeyID     Secret `yaml:"access_key_id,omitempty" json:"access_key_id,omitempty"`
+	AccessKeySecret Secret `yaml:"access_key_secret,omitempty" json:"access_key_secret,omitempty"`
+	RoleName        Secret `yaml:"role_name,omitempty" json:"role_name,omitempty"`
+	RegionID        string `yaml:"region_id,omitempty" json:"region_id,omitempty"`
+	PhoneNumber     string `yaml:"phone_number,omitempty" json:"phone_number,omitempty"`
+	SignName        string `yaml:"sign_name,omitempty" json:"sign_name,omitempty"`
+	TemplateCode    string `yaml:"template_code,omitempty" json:"template_code,omitempty"`
+	TemplateParam   string `yaml:"template_param,omitempty" json:"template_param,omitempty"`
+}
+
+const smsValidPhoneNumberRe = `(13|14|15|17|18|19)[0-9]{9}`
+
+var smsPhoneNumberMatcher = regexp.MustCompile(smsValidPhoneNumberRe)
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *SMSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultSMSConfig
+	type plain SMSConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	if !smsPhoneNumberMatcher.MatchString(c.PhoneNumber) {
+		return errors.Errorf("SMS phone number %q does not match valid options %s", c.PhoneNumber, wechatValidTypesRe)
+	}
 	return nil
 }
 

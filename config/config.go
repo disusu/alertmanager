@@ -447,6 +447,39 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				src.APIURL.Path += "/"
 			}
 		}
+		for _, smc := range rcv.SMSConfigs {
+			if (smc.AccessKeyID == "" || smc.AccessKeySecret == "") && smc.RoleName == "" {
+				if (c.Global.SMSAccessKeyID == "" || c.Global.SMSAccessKeySecret == "") && c.Global.SMSRoleName == "" {
+					return fmt.Errorf("no global SMS access key id or secret or role name set")
+				} else if c.Global.SMSRoleName != "" {
+					smc.RoleName = c.Global.SMSRoleName
+				} else {
+					smc.AccessKeyID = c.Global.SMSAccessKeyID
+					smc.AccessKeySecret = c.Global.SMSAccessKeySecret
+				}
+			}
+
+			if smc.SignName == "" {
+				if c.Global.SMSSignName == "" {
+					return fmt.Errorf("no global SMS role name set")
+				}
+				smc.SignName = c.Global.SMSSignName
+			}
+
+			if smc.RegionID == "" {
+				if c.Global.SMSRegionID == "" {
+					c.Global.SMSRegionID = "cn-shanghai"
+				}
+				smc.RegionID = c.Global.SMSRegionID
+			}
+
+			if smc.TemplateCode == "" {
+				if c.Global.SMSTemplateCode == "" {
+					return fmt.Errorf("no global SMS sign name set")
+				}
+				smc.TemplateCode = c.Global.SMSTemplateCode
+			}
+		}
 		for _, wcc := range rcv.WechatConfigs {
 			if wcc.HTTPConfig == nil {
 				wcc.HTTPConfig = c.Global.HTTPConfig
@@ -730,6 +763,12 @@ type GlobalConfig struct {
 	WeChatAPISecret    Secret     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
 	WeChatAPICorpID    string     `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
 	SwarmRobotAPIURL   *URL       `yaml:"swarmrobot_api_url,omitempty" json:"swarmrobot_api_url,omitempty"`
+	SMSAccessKeyID     Secret     `yaml:"sms_access_key_id,omitempty" json:"sms_access_key_id,omitempty"`
+	SMSAccessKeySecret Secret     `yaml:"sms_access_key_secret,omitempty" json:"sms_access_key_secret,omitempty"`
+	SMSRoleName        Secret     `yaml:"sms_role_name,omitempty" json:"sms_role_name,omitempty"`
+	SMSRegionID        string     `yaml:"sms_region_id,omitempty" json:"sms_region_id,omitempty"`
+	SMSSignName        string     `yaml:"sms_sign_name,omitempty" json:"sms_sign_name,omitempty"`
+	SMSTemplateCode    string     `yaml:"sms_template_code,omitempty" json:"sms_template_code,omitempty"`
 	VictorOpsAPIURL    *URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
 	VictorOpsAPIKey    Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
 	TelegramAPIUrl     *URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
@@ -870,6 +909,7 @@ type Receiver struct {
 	WebhookConfigs    []*WebhookConfig    `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
 	OpsGenieConfigs   []*OpsGenieConfig   `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
 	WechatConfigs     []*WechatConfig     `yaml:"wechat_configs,omitempty" json:"wechat_configs,omitempty"`
+	SMSConfigs        []*SMSConfig        `yaml:"sms_configs,omitempty" json:"sms_configs,omitempty"`
 	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
 	PushoverConfigs   []*PushoverConfig   `yaml:"pushover_configs,omitempty" json:"pushover_configs,omitempty"`
 	VictorOpsConfigs  []*VictorOpsConfig  `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`
