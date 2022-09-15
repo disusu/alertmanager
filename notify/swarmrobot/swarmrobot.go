@@ -113,7 +113,7 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 		cnt, truncated := truncate(cnt, 4096)
 		level.Debug(n.logger).Log("msg", "message length", "length", len(cnt), "incident", key)
 		if truncated {
-			level.Warn(n.logger).Log("msg", "Truncated message", "truncate_message", cnt, "incident", key)
+			level.Warn(n.logger).Log("msg", "Truncated message", "reason", "Message body length out of 4096 bytes", "incident", key)
 		}
 		msg.Markdown = weChatSwarmRobotMarkdownMessageContent{
 			Content: cnt,
@@ -123,7 +123,7 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 		cnt, truncated := truncate(cnt, 2048)
 		level.Debug(n.logger).Log("msg", "message length", "length", len(cnt), "incident", key)
 		if truncated {
-			level.Warn(n.logger).Log("msg", "Truncated message", "truncate_message", cnt, "incident", key)
+			level.Warn(n.logger).Log("msg", "Truncated message", "reason", "Message body length out of 2048 bytes", cnt, "incident", key)
 		}
 		msg.Text = weChatSwarmRobotTextMessageContent{
 			Content:             cnt,
