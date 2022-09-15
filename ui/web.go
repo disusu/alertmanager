@@ -67,9 +67,15 @@ func Register(r *route.Router, reloadCh chan<- chan error, promlogConfig promlog
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
 	}))
+	r.Head("/-/healthy", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 	r.Get("/-/ready", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
+	}))
+	r.Head("/-/ready", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	}))
 	if promlogConfig.Level.String() == "debug" {
 		r.Post("/-/reload", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
