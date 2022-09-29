@@ -481,6 +481,7 @@ type SMSConfig struct {
 	RoleName        Secret `yaml:"role_name,omitempty" json:"role_name,omitempty"`
 	RegionID        string `yaml:"region_id,omitempty" json:"region_id,omitempty"`
 	PhoneNumber     string `yaml:"phone_number,omitempty" json:"phone_number,omitempty"`
+	IsBomb          bool   `yaml:"is_bomb,omitempty" json:"is_bomb,omitempty"` //is it need sms bombing
 	SignName        string `yaml:"sign_name,omitempty" json:"sign_name,omitempty"`
 	TemplateCode    string `yaml:"template_code,omitempty" json:"template_code,omitempty"`
 	TemplateParam   string `yaml:"template_param,omitempty" json:"template_param,omitempty"`

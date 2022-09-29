@@ -16,6 +16,7 @@ package sms
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	dysmsapi "github.com/aliyun/alibaba-cloud-sdk-go/services/dysmsapi"
 	"github.com/go-kit/log"
@@ -33,6 +34,7 @@ type Notifier struct {
 	conf    *config.SMSConfig
 	tmpl    *template.Template
 	logger  log.Logger
+	m       sync.Mutex
 	client  *dysmsapi.Client
 	request *dysmsapi.SendSmsRequest
 }
@@ -60,34 +62,48 @@ func New(c *config.SMSConfig, t *template.Template, l log.Logger) (*Notifier, er
 
 // Notify implements the Notifier interface.
 func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	n.request.Scheme = "https"
+	n.request.PhoneNumbers = n.conf.PhoneNumber
+	n.request.SignName = n.conf.SignName
+	n.request.TemplateCode = n.conf.TemplateCode
+
 	key, err := notify.ExtractGroupKey(ctx)
 	if err != nil {
 		return false, err
 	}
 
 	level.Debug(n.logger).Log("incident", key)
-	data := notify.GetTemplateData(ctx, n.tmpl, as, n.logger)
 
-	tmpl := notify.TmplText(n.tmpl, data, &err)
-	if err != nil {
-		return false, err
-	}
+	var oas []*types.Alert
+	first := true
+	for k := range as {
+		oas = append(oas, as[k])
+		data := notify.GetTemplateData(ctx, n.tmpl, oas, n.logger)
 
-	n.request.Scheme = "https"
-	n.request.PhoneNumbers = n.conf.PhoneNumber
-	n.request.SignName = n.conf.SignName
-	n.request.TemplateCode = n.conf.TemplateCode
-	n.request.TemplateParam = tmpl(n.conf.TemplateParam)
+		tmpl := notify.TmplText(n.tmpl, data, &err)
+		if err != nil {
+			return false, err
+		}
 
-	resp, err := n.client.SendSms(n.request)
-	if err != nil {
-		return false, err
-	}
+		n.request.TemplateParam = tmpl(n.conf.TemplateParam)
+		//whether all alarms
+		if first || n.conf.IsBomb {
+			first = false
+			resp, err := n.client.SendSms(n.request)
+			if err != nil {
+				return false, err
+			}
+			level.Debug(n.logger).Log("msg", "response info", "num", k, "code", resp.Code, "message", resp.Message, "bizid", resp.BizId, "requestid", resp.RequestId, "incident", key)
 
-	level.Debug(n.logger).Log("msg", "response info", "code", resp.Code, "message", resp.Message, "bizid", resp.BizId, "requestid", resp.RequestId, "incident", key)
-
-	if resp.Code != "OK" {
-		return false, fmt.Errorf("unexpected resp code %v, response message: %v, bizId: %v, requestId: %v", resp.Code, resp.Message, resp.BizId, resp.RequestId)
+			if resp.Code != "OK" {
+				return false, fmt.Errorf("unexpected resp code %v, response message: %v, bizId: %v, requestId: %v", resp.Code, resp.Message, resp.BizId, resp.RequestId)
+			}
+		}
+		//Only one SMS alert at a time
+		oas = nil
 	}
 
 	return false, nil
