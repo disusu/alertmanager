@@ -120,6 +120,13 @@ var (
 		},
 		TemplateParam: `{{ template "wechat.default.template_param" . }}`,
 	}
+	// DefaultVMSConfig defines default values for VMS configurations.
+	DefaultVMSConfig = VMSConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: false,
+		},
+		TtsParam: `{{ template "wechat.default.tts_param" . }}`,
+	}
 	// DefaultVictorOpsConfig defines default values for VictorOps configurations.
 	DefaultVictorOpsConfig = VictorOpsConfig{
 		NotifierConfig: NotifierConfig{
@@ -499,7 +506,40 @@ func (c *SMSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	if !smsPhoneNumberMatcher.MatchString(c.PhoneNumber) {
-		return errors.Errorf("SMS phone number %q does not match valid options %s", c.PhoneNumber, wechatValidTypesRe)
+		return errors.Errorf("SMS phone number %q does not match valid options %s", c.PhoneNumber, smsValidPhoneNumberRe)
+	}
+	return nil
+}
+
+// VMSConfig configures notifications via a generic VMS.
+type VMSConfig struct {
+	NotifierConfig  `yaml:",inline" json:",inline"`
+	AccessKeyID     Secret   `yaml:"access_key_id,omitempty" json:"access_key_id,omitempty"`
+	AccessKeySecret Secret   `yaml:"access_key_secret,omitempty" json:"access_key_secret,omitempty"`
+	RoleName        Secret   `yaml:"role_name,omitempty" json:"role_name,omitempty"`
+	RegionID        string   `yaml:"region_id,omitempty" json:"region_id,omitempty"`
+	PhoneNumber     []string `yaml:"phone_number,omitempty" json:"phone_number,omitempty"`
+	IsBomb          bool     `yaml:"is_bomb,omitempty" json:"is_bomb,omitempty"` //is it need vms bombing
+	TtsCode         string   `yaml:"tts_code,omitempty" json:"tts_code,omitempty"`
+	TtsParam        string   `yaml:"tts_param,omitempty" json:"tts_param,omitempty"`
+}
+
+const vmsValidPhoneNumberRe = `(13|14|15|17|18|19)[0-9]{9}`
+
+var vmsPhoneNumberMatcher = regexp.MustCompile(vmsValidPhoneNumberRe)
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *VMSConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultVMSConfig
+	type plain VMSConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	for _, v := range c.PhoneNumber {
+		if !vmsPhoneNumberMatcher.MatchString(v) {
+			return errors.Errorf("VMS phone number %q does not match valid options %s", v, vmsValidPhoneNumberRe)
+		}
+
 	}
 	return nil
 }

@@ -59,6 +59,7 @@ import (
 	"github.com/prometheus/alertmanager/notify/swarmrobot"
 	"github.com/prometheus/alertmanager/notify/telegram"
 	"github.com/prometheus/alertmanager/notify/victorops"
+	"github.com/prometheus/alertmanager/notify/vms"
 	"github.com/prometheus/alertmanager/notify/webhook"
 	"github.com/prometheus/alertmanager/notify/wechat"
 	"github.com/prometheus/alertmanager/provider/mem"
@@ -165,6 +166,9 @@ func buildReceiverIntegrations(nc *config.Receiver, tmpl *template.Template, log
 	}
 	for i, c := range nc.SMSConfigs {
 		add("sms", i, c, func(l log.Logger) (notify.Notifier, error) { return sms.New(c, tmpl, l) })
+	}
+	for i, c := range nc.VMSConfigs {
+		add("vms", i, c, func(l log.Logger) (notify.Notifier, error) { return vms.New(c, tmpl, l) })
 	}
 	for i, c := range nc.SlackConfigs {
 		add("slack", i, c, func(l log.Logger) (notify.Notifier, error) { return slack.New(c, tmpl, l) })

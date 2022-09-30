@@ -480,6 +480,32 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				smc.TemplateCode = c.Global.SMSTemplateCode
 			}
 		}
+		for _, vmc := range rcv.VMSConfigs {
+			if (vmc.AccessKeyID == "" || vmc.AccessKeySecret == "") && vmc.RoleName == "" {
+				if (c.Global.SMSAccessKeyID == "" || c.Global.SMSAccessKeySecret == "") && c.Global.SMSRoleName == "" {
+					return fmt.Errorf("no global VMS access key id or secret or role name set")
+				} else if c.Global.SMSRoleName != "" {
+					vmc.RoleName = c.Global.SMSRoleName
+				} else {
+					vmc.AccessKeyID = c.Global.SMSAccessKeyID
+					vmc.AccessKeySecret = c.Global.SMSAccessKeySecret
+				}
+			}
+
+			if vmc.RegionID == "" {
+				if c.Global.SMSRegionID == "" {
+					c.Global.SMSRegionID = "cn-shanghai"
+				}
+				vmc.RegionID = c.Global.SMSRegionID
+			}
+
+			if vmc.TtsCode == "" {
+				if c.Global.TtsCode == "" {
+					return fmt.Errorf("no global vms tts_code set")
+				}
+				vmc.TtsCode = c.Global.TtsCode
+			}
+		}
 		for _, wcc := range rcv.WechatConfigs {
 			if wcc.HTTPConfig == nil {
 				wcc.HTTPConfig = c.Global.HTTPConfig
@@ -769,6 +795,7 @@ type GlobalConfig struct {
 	SMSRegionID        string     `yaml:"sms_region_id,omitempty" json:"sms_region_id,omitempty"`
 	SMSSignName        string     `yaml:"sms_sign_name,omitempty" json:"sms_sign_name,omitempty"`
 	SMSTemplateCode    string     `yaml:"sms_template_code,omitempty" json:"sms_template_code,omitempty"`
+	TtsCode            string     `yaml:"tts_code,omitempty" json:"tts_code,omitempty"`
 	VictorOpsAPIURL    *URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
 	VictorOpsAPIKey    Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
 	TelegramAPIUrl     *URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
@@ -910,6 +937,7 @@ type Receiver struct {
 	OpsGenieConfigs   []*OpsGenieConfig   `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
 	WechatConfigs     []*WechatConfig     `yaml:"wechat_configs,omitempty" json:"wechat_configs,omitempty"`
 	SMSConfigs        []*SMSConfig        `yaml:"sms_configs,omitempty" json:"sms_configs,omitempty"`
+	VMSConfigs        []*VMSConfig        `yaml:"vms_configs,omitempty" json:"vms_configs,omitempty"`
 	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
 	PushoverConfigs   []*PushoverConfig   `yaml:"pushover_configs,omitempty" json:"pushover_configs,omitempty"`
 	VictorOpsConfigs  []*VictorOpsConfig  `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`

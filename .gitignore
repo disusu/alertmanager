@@ -1,7 +1,6 @@
 /data/
 /alertmanager
 /amtool
-sms.tmpl
 *.tar.*
 CHANGE.md
 *.yml
