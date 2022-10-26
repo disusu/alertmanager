@@ -251,6 +251,9 @@ func resolveFilepaths(baseDir string, cfg *Config) {
 		for _, cfg := range receiver.TelegramConfigs {
 			cfg.HTTPConfig.SetDirectory(baseDir)
 		}
+		for _, cfg := range receiver.DiscordConfigs {
+			cfg.HTTPConfig.SetDirectory(baseDir)
+		}
 	}
 }
 
@@ -338,6 +341,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("at most one of opsgenie_api_key & opsgenie_api_key_file must be configured")
 	}
 
+	if c.Global.VictorOpsAPIKey != "" && len(c.Global.VictorOpsAPIKeyFile) > 0 {
+		return fmt.Errorf("at most one of victorops_api_key & victorops_api_key_file must be configured")
+	}
+
+	if len(c.Global.SMTPAuthPassword) > 0 && len(c.Global.SMTPAuthPasswordFile) > 0 {
+		return fmt.Errorf("at most one of smtp_auth_password & smtp_auth_password_file must be configured")
+	}
+
 	names := map[string]struct{}{}
 
 	for _, rcv := range c.Receivers {
@@ -368,8 +379,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if ec.AuthUsername == "" {
 				ec.AuthUsername = c.Global.SMTPAuthUsername
 			}
-			if ec.AuthPassword == "" {
+			if ec.AuthPassword == "" && ec.AuthPasswordFile == "" {
 				ec.AuthPassword = c.Global.SMTPAuthPassword
+				ec.AuthPasswordFile = c.Global.SMTPAuthPasswordFile
 			}
 			if ec.AuthSecret == "" {
 				ec.AuthSecret = c.Global.SMTPAuthSecret
@@ -549,11 +561,12 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if !strings.HasSuffix(voc.APIURL.Path, "/") {
 				voc.APIURL.Path += "/"
 			}
-			if voc.APIKey == "" {
-				if c.Global.VictorOpsAPIKey == "" {
+			if voc.APIKey == "" && len(voc.APIKeyFile) == 0 {
+				if c.Global.VictorOpsAPIKey == "" && len(c.Global.VictorOpsAPIKeyFile) == 0 {
 					return fmt.Errorf("no global VictorOps API Key set")
 				}
 				voc.APIKey = c.Global.VictorOpsAPIKey
+				voc.APIKeyFile = c.Global.VictorOpsAPIKeyFile
 			}
 		}
 		for _, sns := range rcv.SNSConfigs {
@@ -568,6 +581,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 			if telegram.APIUrl == nil {
 				telegram.APIUrl = c.Global.TelegramAPIUrl
+			}
+		}
+		for _, discord := range rcv.DiscordConfigs {
+			if discord.HTTPConfig == nil {
+				discord.HTTPConfig = c.Global.HTTPConfig
+			}
+			if discord.WebhookURL == nil {
+				return fmt.Errorf("no discord webhook URL provided")
 			}
 		}
 
@@ -771,34 +792,36 @@ type GlobalConfig struct {
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 
-	SMTPFrom           string     `yaml:"smtp_from,omitempty" json:"smtp_from,omitempty"`
-	SMTPHello          string     `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
-	SMTPSmarthost      HostPort   `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
-	SMTPAuthUsername   string     `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
-	SMTPAuthPassword   Secret     `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
-	SMTPAuthSecret     Secret     `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
-	SMTPAuthIdentity   string     `yaml:"smtp_auth_identity,omitempty" json:"smtp_auth_identity,omitempty"`
-	SMTPRequireTLS     bool       `yaml:"smtp_require_tls" json:"smtp_require_tls,omitempty"`
-	SlackAPIURL        *SecretURL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`
-	SlackAPIURLFile    string     `yaml:"slack_api_url_file,omitempty" json:"slack_api_url_file,omitempty"`
-	PagerdutyURL       *URL       `yaml:"pagerduty_url,omitempty" json:"pagerduty_url,omitempty"`
-	OpsGenieAPIURL     *URL       `yaml:"opsgenie_api_url,omitempty" json:"opsgenie_api_url,omitempty"`
-	OpsGenieAPIKey     Secret     `yaml:"opsgenie_api_key,omitempty" json:"opsgenie_api_key,omitempty"`
-	OpsGenieAPIKeyFile string     `yaml:"opsgenie_api_key_file,omitempty" json:"opsgenie_api_key_file,omitempty"`
-	WeChatAPIURL       *URL       `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
-	WeChatAPISecret    Secret     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
-	WeChatAPICorpID    string     `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
-	SwarmRobotAPIURL   *URL       `yaml:"swarmrobot_api_url,omitempty" json:"swarmrobot_api_url,omitempty"`
-	SMSAccessKeyID     Secret     `yaml:"sms_access_key_id,omitempty" json:"sms_access_key_id,omitempty"`
-	SMSAccessKeySecret Secret     `yaml:"sms_access_key_secret,omitempty" json:"sms_access_key_secret,omitempty"`
-	SMSRoleName        Secret     `yaml:"sms_role_name,omitempty" json:"sms_role_name,omitempty"`
-	SMSRegionID        string     `yaml:"sms_region_id,omitempty" json:"sms_region_id,omitempty"`
-	SMSSignName        string     `yaml:"sms_sign_name,omitempty" json:"sms_sign_name,omitempty"`
-	SMSTemplateCode    string     `yaml:"sms_template_code,omitempty" json:"sms_template_code,omitempty"`
-	TtsCode            string     `yaml:"tts_code,omitempty" json:"tts_code,omitempty"`
-	VictorOpsAPIURL    *URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
-	VictorOpsAPIKey    Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
-	TelegramAPIUrl     *URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
+	SMTPFrom             string     `yaml:"smtp_from,omitempty" json:"smtp_from,omitempty"`
+	SMTPHello            string     `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
+	SMTPSmarthost        HostPort   `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
+	SMTPAuthUsername     string     `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
+	SMTPAuthPassword     Secret     `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
+	SMTPAuthPasswordFile string     `yaml:"smtp_auth_password_file,omitempty" json:"smtp_auth_password_file,omitempty"`
+	SMTPAuthSecret       Secret     `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
+	SMTPAuthIdentity     string     `yaml:"smtp_auth_identity,omitempty" json:"smtp_auth_identity,omitempty"`
+	SMTPRequireTLS       bool       `yaml:"smtp_require_tls" json:"smtp_require_tls,omitempty"`
+	SlackAPIURL          *SecretURL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`
+	SlackAPIURLFile      string     `yaml:"slack_api_url_file,omitempty" json:"slack_api_url_file,omitempty"`
+	PagerdutyURL         *URL       `yaml:"pagerduty_url,omitempty" json:"pagerduty_url,omitempty"`
+	OpsGenieAPIURL       *URL       `yaml:"opsgenie_api_url,omitempty" json:"opsgenie_api_url,omitempty"`
+	OpsGenieAPIKey       Secret     `yaml:"opsgenie_api_key,omitempty" json:"opsgenie_api_key,omitempty"`
+	OpsGenieAPIKeyFile   string     `yaml:"opsgenie_api_key_file,omitempty" json:"opsgenie_api_key_file,omitempty"`
+	WeChatAPIURL         *URL       `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
+	WeChatAPISecret      Secret     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
+	WeChatAPICorpID      string     `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
+	VictorOpsAPIURL      *URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
+	VictorOpsAPIKey      Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
+	VictorOpsAPIKeyFile  string     `yaml:"victorops_api_key_file,omitempty" json:"victorops_api_key_file,omitempty"`
+	TelegramAPIUrl       *URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
+	SwarmRobotAPIURL     *URL       `yaml:"swarmrobot_api_url,omitempty" json:"swarmrobot_api_url,omitempty"`
+	SMSAccessKeyID       Secret     `yaml:"sms_access_key_id,omitempty" json:"sms_access_key_id,omitempty"`
+	SMSAccessKeySecret   Secret     `yaml:"sms_access_key_secret,omitempty" json:"sms_access_key_secret,omitempty"`
+	SMSRoleName          Secret     `yaml:"sms_role_name,omitempty" json:"sms_role_name,omitempty"`
+	SMSRegionID          string     `yaml:"sms_region_id,omitempty" json:"sms_region_id,omitempty"`
+	SMSSignName          string     `yaml:"sms_sign_name,omitempty" json:"sms_sign_name,omitempty"`
+	SMSTemplateCode      string     `yaml:"sms_template_code,omitempty" json:"sms_template_code,omitempty"`
+	TtsCode              string     `yaml:"tts_code,omitempty" json:"tts_code,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for GlobalConfig.
@@ -930,19 +953,20 @@ type Receiver struct {
 	// A unique identifier for this receiver.
 	Name string `yaml:"name" json:"name"`
 
+	DiscordConfigs    []*DiscordConfig    `yaml:"discord_configs,omitempty" json:"discord_configs,omitempty"`
 	EmailConfigs      []*EmailConfig      `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
 	PagerdutyConfigs  []*PagerdutyConfig  `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
 	SlackConfigs      []*SlackConfig      `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
 	WebhookConfigs    []*WebhookConfig    `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
 	OpsGenieConfigs   []*OpsGenieConfig   `yaml:"opsgenie_configs,omitempty" json:"opsgenie_configs,omitempty"`
 	WechatConfigs     []*WechatConfig     `yaml:"wechat_configs,omitempty" json:"wechat_configs,omitempty"`
-	SMSConfigs        []*SMSConfig        `yaml:"sms_configs,omitempty" json:"sms_configs,omitempty"`
-	VMSConfigs        []*VMSConfig        `yaml:"vms_configs,omitempty" json:"vms_configs,omitempty"`
-	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
 	PushoverConfigs   []*PushoverConfig   `yaml:"pushover_configs,omitempty" json:"pushover_configs,omitempty"`
 	VictorOpsConfigs  []*VictorOpsConfig  `yaml:"victorops_configs,omitempty" json:"victorops_configs,omitempty"`
 	SNSConfigs        []*SNSConfig        `yaml:"sns_configs,omitempty" json:"sns_configs,omitempty"`
 	TelegramConfigs   []*TelegramConfig   `yaml:"telegram_configs,omitempty" json:"telegram_configs,omitempty"`
+	SMSConfigs        []*SMSConfig        `yaml:"sms_configs,omitempty" json:"sms_configs,omitempty"`
+	VMSConfigs        []*VMSConfig        `yaml:"vms_configs,omitempty" json:"vms_configs,omitempty"`
+	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Receiver.
