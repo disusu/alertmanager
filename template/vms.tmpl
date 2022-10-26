@@ -1,8 +1,10 @@
 {{ define "vms.test.tts_param" }}
 {{- if gt (len .Alerts.Firing) 0 -}}
 {{- range .Alerts -}}
-{{- if gt (len .Labels.message) 0 -}}
+{{- if and (gt (len .Labels.message) 0) (ne .Labels.message "null" ) -}}
 {"desc": "{{ .Annotations.summary }}，区服: {{.Labels.region_name }}，请及时关注"}
+{{- else if gt (len .Labels.content) 0 -}}
+{"desc": "{{ .Annotations.summary }}，主机: {{.Labels.hostname }}，请及时关注"}
 {{- else -}}
 {"desc": "{{ .Annotations.summary }}，区服: {{.Labels.region_name }}，请及时关注"}
 {{- end }}

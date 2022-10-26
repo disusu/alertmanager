@@ -31,22 +31,64 @@
 {{- end }}
 
 {{ define "swarmrobot.markdown.message" }}
-{{ $delField := stringSlice "count" "ip" -}}
+{{ $slsField := stringSlice "region_name" "app_name" "file" "message" "error" "trace_seq" -}}
+{{ $proField := stringSlice "hostname" "region_name" "service" "groupname" -}}
+{{ $sysField := stringSlice "content" "hostname" -}}
 {{ if gt (len .Alerts.Firing) 0 -}}
-{{ range .Alerts }}
-<font color="#FF0000">{{ .Annotations.summary }}</font>
-{{ range $k,$v := .Labels.Remove $delField }}>{{ $k }}: <font color="comment">{{ $v }}</font>
+{{ range $index,$alert := .Alerts -}}
+<font color="warning">Alert: {{ $alert.Annotations.summary }}</font>
+{{ if and (gt (len $alert.Labels.message) 0) (ne $alert.Labels.message "null" ) -}}
+{{ range $k,$v := $slsField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
+{{ end -}}
 {{ end -}}
 >故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{ else if gt (len $alert.Labels.content) 0 -}}
+{{ range $k,$v := $sysField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
+{{ end -}}
+{{ end -}}
+>故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{ else -}}
+{{ range $k,$v := $proField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
+{{ end -}}
+{{ end -}}
+>故障时间: <font color="comment">{{ ($alert.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}</font> 
+{{- end }}
 {{- end }}
 {{- end }}
 {{ if gt (len .Alerts.Resolved) 0 -}}
-{{ range .Alerts }}
-<font color="#006600">{{ .Annotations.summary }}</font>
-{{ range $k,$v := .Labels.Remove $delField }}>{{ $k }}: <font color="comment">{{ $v }}</font>
+{{ range $index,$alert := .Alerts -}}
+<font color="info">Recover: {{ $alert.Annotations.summary }}</font>
+{{ if and (gt (len $alert.Labels.message) 0) (ne $alert.Labels.message "null" ) -}}
+{{ range $k,$v := $slsField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
 {{ end -}}
->故障时间: <font color="comment">{{ .StartsAt.Format "2006-01-02 15:04:05" }}</font> 
->恢复时间: <font color="comment">{{ .EndsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{ end -}}
+>故障时间: <font color="comment">{{ $alert.StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+>恢复时间: <font color="comment">{{ $alert.EndsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{ else if gt (len $alert.Labels.content) 0 -}}
+{{ range $k,$v := $sysField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
+{{ end -}}
+{{ end -}}
+>故障时间: <font color="comment">{{ $alert.StartsAt.Format "2006-01-02 15:04:05" }}</font> 
+>恢复时间: <font color="comment">{{ $alert.EndsAt.Format "2006-01-02 15:04:05" }}</font> 
+{{ else -}}
+{{ range $k,$v := $proField -}}
+{{ if gt (len (index $alert.Labels $v)) 0 -}}
+>{{ $v }}: <font color="comment">{{ index $alert.Labels $v }}</font>
+{{ end -}}
+{{ end -}}
+>故障时间: <font color="comment">{{ ($alert.StartsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}</font> 
+>恢复时间: <font color="comment">{{ ($alert.EndsAt.Add 28800e9).Format "2006-01-02 15:04:05" }}</font> 
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
