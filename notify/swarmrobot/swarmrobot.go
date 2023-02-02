@@ -50,9 +50,9 @@ type weChatSwarmRobotMarkdownMessageContent struct {
 	Content string `json:"content"`
 }
 type weChatSwarmRobotTextMessageContent struct {
-	Content             string `json:"content"`
-	MentionedList       string `json:"mentioned_list"`
-	MentionedMobileList string `json:"mentioned_mobile_list"`
+	Content             string   `json:"content"`
+	MentionedList       []string `json:"mentioned_list"`
+	MentionedMobileList []string `json:"mentioned_mobile_list"`
 }
 
 type weChatSwarmRobotResponse struct {
@@ -96,10 +96,6 @@ func (n *Notifier) Notify(ctx context.Context, as ...*types.Alert) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	//TODO:
-	// markdown-length: 4096 bytes
-	// text-length: 2048 bytes
-	// limit: 20/min
 	if len(n.conf.APIKey) == 0 {
 		return false, fmt.Errorf("invalid APIKey")
 	}

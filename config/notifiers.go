@@ -486,12 +486,12 @@ type SwarmRobotConfig struct {
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 
-	Message             string `yaml:"message,omitempty" json:"message,omitempty"`
-	APIURL              *URL   `yaml:"api_url,omitempty" json:"api_url,omitempty"`
-	APIKey              Secret `yaml:"api_key,omitempty" json:"api_key,omitempty"`
-	MessageType         string `yaml:"message_type,omitempty" json:"message_type,omitempty"`
-	MentionedList       string `yaml:"mentioned_list" json:"mentioned_list"`
-	MentionedMobileList string `yaml:"mentioned_mobile_list" json:"mentioned_mobile_list"`
+	Message             string   `yaml:"message,omitempty" json:"message,omitempty"`
+	APIURL              *URL     `yaml:"api_url,omitempty" json:"api_url,omitempty"`
+	APIKey              Secret   `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+	MessageType         string   `yaml:"message_type,omitempty" json:"message_type,omitempty"`
+	MentionedList       []string `yaml:"mentioned_list" json:"mentioned_list"`
+	MentionedMobileList []string `yaml:"mentioned_mobile_list" json:"mentioned_mobile_list"`
 }
 
 const swarmRobotValidTypesRe = `^(text|markdown)$`
