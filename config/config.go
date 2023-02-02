@@ -254,6 +254,9 @@ func resolveFilepaths(baseDir string, cfg *Config) {
 		for _, cfg := range receiver.DiscordConfigs {
 			cfg.HTTPConfig.SetDirectory(baseDir)
 		}
+		for _, cfg := range receiver.WebexConfigs {
+			cfg.HTTPConfig.SetDirectory(baseDir)
+		}
 	}
 }
 
@@ -295,11 +298,11 @@ func (ti *TimeInterval) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // Config is the top-level configuration for Alertmanager's config files.
 type Config struct {
-	Global       *GlobalConfig  `yaml:"global,omitempty" json:"global,omitempty"`
-	Route        *Route         `yaml:"route,omitempty" json:"route,omitempty"`
-	InhibitRules []*InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
-	Receivers    []*Receiver    `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Templates    []string       `yaml:"templates" json:"templates"`
+	Global       *GlobalConfig `yaml:"global,omitempty" json:"global,omitempty"`
+	Route        *Route        `yaml:"route,omitempty" json:"route,omitempty"`
+	InhibitRules []InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
+	Receivers    []Receiver    `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+	Templates    []string      `yaml:"templates" json:"templates"`
 	// Deprecated. Remove before v1.0 release.
 	MuteTimeIntervals []MuteTimeInterval `yaml:"mute_time_intervals,omitempty" json:"mute_time_intervals,omitempty"`
 	TimeIntervals     []TimeInterval     `yaml:"time_intervals,omitempty" json:"time_intervals,omitempty"`
@@ -591,6 +594,18 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				return fmt.Errorf("no discord webhook URL provided")
 			}
 		}
+		for _, webex := range rcv.WebexConfigs {
+			if webex.HTTPConfig == nil {
+				webex.HTTPConfig = c.Global.HTTPConfig
+			}
+			if webex.APIURL == nil {
+				if c.Global.WebexAPIURL == nil {
+					return fmt.Errorf("no global Webex URL set")
+				}
+
+				webex.APIURL = c.Global.WebexAPIURL
+			}
+		}
 
 		names[rcv.Name] = struct{}{}
 	}
@@ -691,6 +706,7 @@ func DefaultGlobalConfig() GlobalConfig {
 		WeChatAPIURL:    mustParseURL("https://qyapi.weixin.qq.com/cgi-bin/"),
 		VictorOpsAPIURL: mustParseURL("https://alert.victorops.com/integrations/generic/20131114/alert/"),
 		TelegramAPIUrl:  mustParseURL("https://api.telegram.org"),
+		WebexAPIURL:     mustParseURL("https://webexapis.com/v1/messages"),
 	}
 }
 
@@ -822,6 +838,7 @@ type GlobalConfig struct {
 	SMSSignName          string     `yaml:"sms_sign_name,omitempty" json:"sms_sign_name,omitempty"`
 	SMSTemplateCode      string     `yaml:"sms_template_code,omitempty" json:"sms_template_code,omitempty"`
 	TtsCode              string     `yaml:"tts_code,omitempty" json:"tts_code,omitempty"`
+	WebexAPIURL          *URL       `yaml:"webex_api_url,omitempty" json:"webex_api_url,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for GlobalConfig.
@@ -967,6 +984,7 @@ type Receiver struct {
 	SMSConfigs        []*SMSConfig        `yaml:"sms_configs,omitempty" json:"sms_configs,omitempty"`
 	VMSConfigs        []*VMSConfig        `yaml:"vms_configs,omitempty" json:"vms_configs,omitempty"`
 	SwarmRobotConfigs []*SwarmRobotConfig `yaml:"swarmrobot_configs,omitempty" json:"swarmrobot_configs,omitempty"`
+	WebexConfigs      []*WebexConfig      `yaml:"webex_configs,omitempty" json:"webex_configs,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Receiver.

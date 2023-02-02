@@ -11,11 +11,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telegram
+package webex
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,7 +27,6 @@ import (
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
 
 	"github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/notify"
@@ -36,41 +34,14 @@ import (
 	"github.com/prometheus/alertmanager/types"
 )
 
-func TestTelegramUnmarshal(t *testing.T) {
-	in := `
-route:
-  receiver: test
-receivers:
-- name: test
-  telegram_configs:
-  - chat_id: 1234
-    bot_token: secret
-`
-	var c config.Config
-	err := yaml.Unmarshal([]byte(in), &c)
+func TestWebexRetry(t *testing.T) {
+	testWebhookURL, err := url.Parse("https://api.ciscospark.com/v1/message")
 	require.NoError(t, err)
 
-	require.Len(t, c.Receivers, 1)
-	require.Len(t, c.Receivers[0].TelegramConfigs, 1)
-
-	require.Equal(t, "https://api.telegram.org", c.Receivers[0].TelegramConfigs[0].APIUrl.String())
-	require.Equal(t, config.Secret("secret"), c.Receivers[0].TelegramConfigs[0].BotToken)
-	require.Equal(t, int64(1234), c.Receivers[0].TelegramConfigs[0].ChatID)
-	require.Equal(t, "HTML", c.Receivers[0].TelegramConfigs[0].ParseMode)
-}
-
-func TestTelegramRetry(t *testing.T) {
-	// Fake url for testing purposes
-	fakeURL := config.URL{
-		URL: &url.URL{
-			Scheme: "https",
-			Host:   "FAKE_API",
-		},
-	}
 	notifier, err := New(
-		&config.TelegramConfig{
+		&config.WebexConfig{
 			HTTPConfig: &commoncfg.HTTPClientConfig{},
-			APIUrl:     &fakeURL,
+			APIURL:     &config.URL{URL: testWebhookURL},
 		},
 		test.CreateTmpl(t),
 		log.NewNopLogger(),
@@ -83,51 +54,65 @@ func TestTelegramRetry(t *testing.T) {
 	}
 }
 
-func TestTelegramNotify(t *testing.T) {
-	for _, tc := range []struct {
-		name    string
-		cfg     config.TelegramConfig
-		expText string
+func TestWebexTemplating(t *testing.T) {
+	tc := []struct {
+		name string
+
+		cfg       *config.WebexConfig
+		Message   string
+		expJSON   string
+		commonCfg *commoncfg.HTTPClientConfig
+
+		retry     bool
+		errMsg    string
+		expHeader string
 	}{
 		{
-			name: "No escaping by default",
-			cfg: config.TelegramConfig{
-				Message:    "<code>x < y</code>",
-				HTTPConfig: &commoncfg.HTTPClientConfig{},
+			name: "with a valid message and a set http_config.authorization, it is formatted as expected",
+			cfg: &config.WebexConfig{
+				Message: `{{ template "webex.default.message" . }}`,
 			},
-			expText: "<code>x < y</code>",
+			commonCfg: &commoncfg.HTTPClientConfig{
+				Authorization: &commoncfg.Authorization{Type: "Bearer", Credentials: "anewsecret"},
+			},
+
+			expJSON:   `{"markdown":"\n\nAlerts Firing:\nLabels:\n - lbl1 = val1\n - lbl3 = val3\nAnnotations:\nSource: \nLabels:\n - lbl1 = val1\n - lbl2 = val2\nAnnotations:\nSource: \n\n\n\n"}`,
+			retry:     false,
+			expHeader: "Bearer anewsecret",
 		},
 		{
-			name: "Characters escaped in HTML mode",
-			cfg: config.TelegramConfig{
-				ParseMode:  "HTML",
-				Message:    "<code>x < y</code>",
-				HTTPConfig: &commoncfg.HTTPClientConfig{},
+			name: "with templating errors, it fails.",
+			cfg: &config.WebexConfig{
+				Message: "{{ ",
 			},
-			expText: "<code>x &lt; y</code>",
+			commonCfg: &commoncfg.HTTPClientConfig{},
+			errMsg:    "template: :1: unclosed action",
 		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
 			var out []byte
+			var header http.Header
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var err error
 				out, err = io.ReadAll(r.Body)
+				header = r.Header.Clone()
 				require.NoError(t, err)
-				w.Write([]byte(`{"ok":true,"result":{"chat":{}}}`))
 			}))
 			defer srv.Close()
 			u, _ := url.Parse(srv.URL)
 
-			tc.cfg.APIUrl = &config.URL{URL: u}
-
-			notifier, err := New(&tc.cfg, test.CreateTmpl(t), log.NewNopLogger())
+			tt.cfg.APIURL = &config.URL{URL: u}
+			tt.cfg.HTTPConfig = tt.commonCfg
+			notifierWebex, err := New(tt.cfg, test.CreateTmpl(t), log.NewNopLogger())
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			ctx = notify.WithGroupKey(ctx, "1")
 
-			retry, err := notifier.Notify(ctx, []*types.Alert{
+			ok, err := notifierWebex.Notify(ctx, []*types.Alert{
 				{
 					Alert: model.Alert{
 						Labels: model.LabelSet{
@@ -138,15 +123,28 @@ func TestTelegramNotify(t *testing.T) {
 						EndsAt:   time.Now().Add(time.Hour),
 					},
 				},
+				{
+					Alert: model.Alert{
+						Labels: model.LabelSet{
+							"lbl1": "val1",
+							"lbl2": "val2",
+						},
+						StartsAt: time.Now(),
+						EndsAt:   time.Now().Add(time.Hour),
+					},
+				},
 			}...)
 
-			require.False(t, retry)
-			require.NoError(t, err)
+			if tt.errMsg == "" {
+				require.NoError(t, err)
+				require.Equal(t, tt.expHeader, header.Get("Authorization"))
+				require.JSONEq(t, tt.expJSON, string(out))
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMsg)
+			}
 
-			req := map[string]string{}
-			err = json.Unmarshal(out, &req)
-			require.NoError(t, err)
-			require.Equal(t, tc.expText, req["text"])
+			require.Equal(t, tt.retry, ok)
 		})
 	}
 }

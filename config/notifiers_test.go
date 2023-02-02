@@ -14,6 +14,7 @@
 package config
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -390,7 +391,25 @@ user_key: ''
 	var cfg PushoverConfig
 	err := yaml.UnmarshalStrict([]byte(in), &cfg)
 
-	expected := "missing user key in Pushover config"
+	expected := "one of user_key or user_key_file must be configured"
+
+	if err == nil {
+		t.Fatalf("no error returned, expected:\n%v", expected)
+	}
+	if err.Error() != expected {
+		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	}
+}
+
+func TestPushoverUserKeyOrUserKeyFile(t *testing.T) {
+	in := `
+user_key: 'user key'
+user_key_file: /pushover/user_key
+`
+	var cfg PushoverConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	expected := "at most one of user_key & user_key_file must be configured"
 
 	if err == nil {
 		t.Fatalf("no error returned, expected:\n%v", expected)
@@ -408,7 +427,26 @@ token: ''
 	var cfg PushoverConfig
 	err := yaml.UnmarshalStrict([]byte(in), &cfg)
 
-	expected := "missing token in Pushover config"
+	expected := "one of token or token_file must be configured"
+
+	if err == nil {
+		t.Fatalf("no error returned, expected:\n%v", expected)
+	}
+	if err.Error() != expected {
+		t.Errorf("\nexpected:\n%v\ngot:\n%v", expected, err.Error())
+	}
+}
+
+func TestPushoverTokenOrTokenFile(t *testing.T) {
+	in := `
+token: 'pushover token'
+token_file: /pushover/token
+user_key: 'user key'
+`
+	var cfg PushoverConfig
+	err := yaml.UnmarshalStrict([]byte(in), &cfg)
+
+	expected := "at most one of token & token_file must be configured"
 
 	if err == nil {
 		t.Fatalf("no error returned, expected:\n%v", expected)
@@ -746,6 +784,25 @@ api_url: http://example.com
 `,
 			err: true,
 		},
+		{
+			name: "valid responder type template",
+			in: `api_key: xyz
+responders:
+- id: foo
+  type: "{{/* valid comment */}}team"
+api_url: http://example.com
+`,
+		},
+		{
+			name: "invalid responder type template",
+			in: `api_key: xyz
+responders:
+- id: foo
+  type: "{{/* invalid comment }}team"
+api_url: http://example.com
+`,
+			err: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var cfg OpsGenieConfig
@@ -863,6 +920,41 @@ func TestWeChatTypeMatcher(t *testing.T) {
 		if wechatTypeMatcher.MatchString(b) {
 			t.Errorf("mistakenly match with %s", b)
 		}
+	}
+}
+
+func TestWebexConfiguration(t *testing.T) {
+	tc := []struct {
+		name string
+
+		in       string
+		expected error
+	}{
+		{
+			name: "with no room_id - it fails",
+			in: `
+message: xyz123
+`,
+			expected: errors.New("missing room_id on webex_config"),
+		},
+		{
+			name: "with room_id and http_config.authorization set - it succeeds",
+			in: `
+room_id: 2
+http_config:
+  authorization:
+    credentials: "xxxyyyzz"
+`,
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg WebexConfig
+			err := yaml.UnmarshalStrict([]byte(tt.in), &cfg)
+
+			require.Equal(t, tt.expected, err)
+		})
 	}
 }
 
