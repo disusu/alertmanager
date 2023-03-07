@@ -289,7 +289,6 @@ func run() int {
 
 	stopc := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	notificationLogOpts := nflog.Options{
 		SnapshotFile: filepath.Join(*dataDir, "nflog"),

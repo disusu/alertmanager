@@ -194,6 +194,10 @@ matchers:
 
 # How long to wait before sending a notification again if it has already
 # been sent successfully for an alert. (Usually ~3h or more).
+# Note that this parameter is implicitly bound by Alertmanager's
+# `--data.retention` configuration flag. Notifications will be resent after either
+# repeat_interval or the data retention period have passed, whichever
+# occurs first.
 [ repeat_interval: <duration> | default = 4h ]
 
 # Times when the route should be muted. These must match the name of a
@@ -862,7 +866,7 @@ Pushover notifications are sent via the [Pushover API](https://pushover.net/api)
 # Whether to notify about resolved alerts.
 [ send_resolved: <boolean> | default = true ]
 
-# The recipient user's key. 
+# The recipient user's key.
 # user_key and user_key_file are mutually exclusive.
 user_key: <secret>
 user_key_file: <filepath>
@@ -1116,7 +1120,9 @@ The webhook receiver allows configuring a generic receiver.
 [ send_resolved: <boolean> | default = true ]
 
 # The endpoint to send HTTP POST requests to.
+# url and url_file are mutually exclusive.
 url: <secret>
+url_file: <filepath>
 
 # The HTTP client's configuration.
 [ http_config: <http_config> | default = global.http_config ]
