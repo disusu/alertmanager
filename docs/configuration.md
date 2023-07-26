@@ -197,7 +197,7 @@ matchers:
 # Note that this parameter is implicitly bound by Alertmanager's
 # `--data.retention` configuration flag. Notifications will be resent after either
 # repeat_interval or the data retention period have passed, whichever
-# occurs first.
+# occurs first. `repeat_interval` should not be less than `group_interval`.
 [ repeat_interval: <duration> | default = 4h ]
 
 # Times when the route should be muted. These must match the name of a
@@ -499,6 +499,8 @@ discord_configs:
   [ - <discord_config>, ... ]
 email_configs:
   [ - <email_config>, ... ]
+msteams_configs:
+  [ - <msteams_config>, ... ]
 opsgenie_configs:
   [ - <opsgenie_config>, ... ]
 pagerduty_configs:
@@ -557,6 +559,15 @@ oauth2:
 
 # Optional proxy URL.
 [ proxy_url: <string> ]
+# Comma-separated string that can contain IPs, CIDR notation, domain names
+# that should be excluded from proxying. IP and domain names can
+# contain port numbers.
+[ no_proxy: <string> ]
+# Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+[ proxy_from_environment: <boolean> | default: false ]
+# Specifies headers to send to proxies during CONNECT requests.
+[ proxy_connect_header:
+  [ <string>: [<secret>, ...] ] ]
 
 # Configure whether HTTP requests follow HTTP 3xx redirects.
 [ follow_redirects: <bool> | default = true ]
@@ -597,6 +608,15 @@ tls_config:
 
 # Optional proxy URL.
 [ proxy_url: <string> ]
+# Comma-separated string that can contain IPs, CIDR notation, domain names
+# that should be excluded from proxying. IP and domain names can
+# contain port numbers.
+[ no_proxy: <string> ]
+# Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+[ proxy_from_environment: <boolean> | default: false ]
+# Specifies headers to send to proxies during CONNECT requests.
+[ proxy_connect_header:
+  [ <string>: [<secret>, ...] ] ]
 ```
 
 #### `<tls_config>`
@@ -697,6 +717,27 @@ tls_config:
 # Further headers email header key/value pairs. Overrides any headers
 # previously set by the notification implementation.
 [ headers: { <string>: <tmpl_string>, ... } ]
+```
+
+### `<msteams_config>`
+
+Microsoft Teams notifications are sent via the [Incoming Webhooks](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/what-are-webhooks-and-connectors) API endpoint.
+
+```yaml
+# Whether to notify about resolved alerts.
+[ send_resolved: <boolean> | default = true ]
+
+# The incoming webhook URL.
+[ webhook_url: <secret> ]
+
+# Message title template.
+[ title: <tmpl_string> | default = '{{ template "teams.default.title" . }}' ]
+
+# Message body template.
+[ text: <tmpl_string> | default = '{{ template "teams.default.text" . }}' ]
+
+# The HTTP client's configuration.
+[ http_config: <http_config> | default = global.http_config ]
 ```
 
 ### `<opsgenie_config>`
@@ -845,7 +886,7 @@ The fields are documented in the [PagerDuty API documentation](https://developer
 
 ```yaml
 href: <tmpl_string>
-source: <tmpl_string>
+src: <tmpl_string>
 alt: <tmpl_string>
 ```
 
@@ -886,6 +927,12 @@ token_file: <filepath>
 
 # A supplementary URL shown alongside the message.
 [ url: <tmpl_string> | default = '{{ template "pushover.default.url" . }}' ]
+
+# Optional device to send notification to, see https://pushover.net/api#device
+[ device: <string> ]
+
+# Optional sound to use for notification, see https://pushover.net/api#sound
+[ sound: <string> ]
 
 # Priority, see https://pushover.net/api#priority
 [ priority: <tmpl_string> | default = '{{ if eq .Status "firing" }}2{{ else }}0{{ end }}' ]
