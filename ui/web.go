@@ -102,16 +102,6 @@ func Register(r *route.Router, reloadCh chan<- chan error, promlogConfig promlog
 		fs.ServeHTTP(w, r)
 	})
 
-	r.Post("/-/reload", func(w http.ResponseWriter, req *http.Request) {
-		errc := make(chan error)
-		defer close(errc)
-
-		reloadCh <- errc
-		if err := <-errc; err != nil {
-			http.Error(w, fmt.Sprintf("failed to reload config: %s", err), http.StatusInternalServerError)
-		}
-	})
-
 	r.Get("/-/healthy", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "OK")
