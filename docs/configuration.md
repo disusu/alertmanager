@@ -185,15 +185,18 @@ matchers:
 # How long to initially wait to send a notification for a group
 # of alerts. Allows to wait for an inhibiting alert to arrive or collect
 # more initial alerts for the same group. (Usually ~0s to few minutes.)
+# If omitted, child routes inherit the group_wait of the parent route.
 [ group_wait: <duration> | default = 30s ]
 
 # How long to wait before sending a notification about new alerts that
 # are added to a group of alerts for which an initial notification has
-# already been sent. (Usually ~5m or more.)
+# already been sent. (Usually ~5m or more.) If omitted, child routes
+# inherit the group_interval of the parent route.
 [ group_interval: <duration> | default = 5m ]
 
 # How long to wait before sending a notification again if it has already
-# been sent successfully for an alert. (Usually ~3h or more).
+# been sent successfully for an alert. (Usually ~3h or more). If omitted,
+# child routes inherit the repeat_interval of the parent route.
 # Note that this parameter is implicitly bound by Alertmanager's
 # `--data.retention` configuration flag. Notifications will be resent after either
 # repeat_interval or the data retention period have passed, whichever
@@ -463,7 +466,7 @@ Here are some examples of valid string matchers:
     As shown below, in the short-form, it's generally better to quote the list elements to avoid problems with special characters like commas:
 
     ```yaml
-    matchers: [ "foo = bar,baz", "dings != bums" ]
+    matchers: [ "foo = \"bar,baz\"", "dings != bums" ]
     ```
 
 3. You can also put both matchers into one PromQL-like string. Single quotes for the whole string work best here.
@@ -563,7 +566,7 @@ oauth2:
 # that should be excluded from proxying. IP and domain names can
 # contain port numbers.
 [ no_proxy: <string> ]
-# Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+# Use proxy URL indicated by environment variables (HTTP_PROXY, http_proxy, HTTPS_PROXY, https_proxy, NO_PROXY, and no_proxy)
 [ proxy_from_environment: <boolean> | default: false ]
 # Specifies headers to send to proxies during CONNECT requests.
 [ proxy_connect_header:
@@ -945,15 +948,22 @@ token_file: <filepath>
 # acknowledges the notification.
 [ expire: <duration> | default = 1h ]
 
+# Optional time to live (TTL) to use for notification, see https://pushover.net/api#ttl
+[ ttl: <duration> ]
+
 # The HTTP client's configuration.
 [ http_config: <http_config> | default = global.http_config ]
 ```
 
 ### `<slack_config>`
 
-Slack notifications are sent via [Slack
-webhooks](https://api.slack.com/messaging/webhooks). The notification contains
-an [attachment](https://api.slack.com/messaging/composing/layouts#attachments).
+Slack notifications can be sent via [Incoming webhooks](https://api.slack.com/messaging/webhooks) or [Bot tokens](https://api.slack.com/authentication/token-types).
+
+If using an incoming webhook then `api_url` must be set to the URL of the incoming webhook, or written to the file referenced in `api_url_file`.
+
+If using Bot tokens then `api_url` must be set to [`https://slack.com/api/chat.postMessage`](https://api.slack.com/methods/chat.postMessage), the bot token must be set as the authorization credentials in `http_config`, and `channel` must contain either the name of the channel or Channel ID to send notifications to. If using the name of the channel the # is optional.
+
+The notification contains an [attachment](https://api.slack.com/messaging/composing/layouts#attachments).
 
 ```yaml
 # Whether to notify about resolved alerts.
