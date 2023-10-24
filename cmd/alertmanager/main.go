@@ -45,6 +45,7 @@ import (
 	"github.com/prometheus/alertmanager/api"
 	"github.com/prometheus/alertmanager/cluster"
 	"github.com/prometheus/alertmanager/config"
+	"github.com/prometheus/alertmanager/config/receiver"
 	"github.com/prometheus/alertmanager/dispatch"
 	"github.com/prometheus/alertmanager/featurecontrol"
 	"github.com/prometheus/alertmanager/inhibit"
@@ -471,7 +472,7 @@ func run() int {
 				level.Info(configLogger).Log("msg", "skipping creation of receiver not referenced by any route", "receiver", rcv.Name)
 				continue
 			}
-			integrations, err := buildReceiverIntegrations(rcv, tmpl, logger)
+			integrations, err := receiver.BuildReceiverIntegrations(rcv, tmpl, logger)
 			if err != nil {
 				return err
 			}
@@ -489,6 +490,8 @@ func run() int {
 		for _, ti := range conf.TimeIntervals {
 			timeIntervals[ti.Name] = ti.TimeIntervals
 		}
+
+		intervener := timeinterval.NewIntervener(timeIntervals)
 
 		inhibitor.Stop()
 		disp.Stop()
@@ -509,7 +512,7 @@ func run() int {
 			waitFunc,
 			inhibitor,
 			silencer,
-			timeIntervals,
+			intervener,
 			notificationLog,
 			pipelinePeer,
 		)
