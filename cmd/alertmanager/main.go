@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -31,7 +32,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/model"
@@ -49,6 +49,7 @@ import (
 	"github.com/prometheus/alertmanager/dispatch"
 	"github.com/prometheus/alertmanager/featurecontrol"
 	"github.com/prometheus/alertmanager/inhibit"
+	"github.com/prometheus/alertmanager/matchers/compat"
 	"github.com/prometheus/alertmanager/nflog"
 	"github.com/prometheus/alertmanager/notify"
 	"github.com/prometheus/alertmanager/notify/discord"
@@ -73,6 +74,7 @@ import (
 	"github.com/prometheus/alertmanager/timeinterval"
 	"github.com/prometheus/alertmanager/types"
 	"github.com/prometheus/alertmanager/ui"
+	reactapp "github.com/prometheus/alertmanager/ui/react-app"
 )
 
 var (
@@ -110,6 +112,11 @@ var (
 			Help: "Number of configured integrations.",
 		},
 	)
+	configuredInhibitionRules = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "alertmanager_inhibition_rules",
+			Help: "Number of configured inhibition rules.",
+		})
 	promlogConfig = promlog.Config{}
 )
 
@@ -119,6 +126,7 @@ func init() {
 	prometheus.MustRegister(clusterEnabled)
 	prometheus.MustRegister(configuredReceivers)
 	prometheus.MustRegister(configuredIntegrations)
+	prometheus.MustRegister(configuredInhibitionRules)
 	prometheus.MustRegister(version.NewCollector("alertmanager"))
 }
 
@@ -260,11 +268,12 @@ func run() int {
 	level.Info(logger).Log("msg", "Starting Alertmanager", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 
-	featureConfig, err := featurecontrol.NewFlags(logger, *featureFlags)
+	ff, err := featurecontrol.NewFlags(logger, *featureFlags)
 	if err != nil {
 		level.Error(logger).Log("msg", "error parsing the feature flag list", "err", err)
 		return 1
 	}
+	compat.InitFromFlags(logger, compat.RegisteredMetrics, ff)
 
 	err = os.MkdirAll(*dataDir, 0o777)
 	if err != nil {
@@ -414,7 +423,7 @@ func run() int {
 		GroupFunc:   groupFn,
 	})
 	if err != nil {
-		level.Error(logger).Log("err", errors.Wrap(err, "failed to create API"))
+		level.Error(logger).Log("err", fmt.Errorf("failed to create API: %w", err))
 		return 1
 	}
 
@@ -442,7 +451,7 @@ func run() int {
 	)
 
 	dispMetrics := dispatch.NewDispatcherMetrics(false, prometheus.DefaultRegisterer)
-	pipelineBuilder := notify.NewPipelineBuilder(prometheus.DefaultRegisterer, featureConfig)
+	pipelineBuilder := notify.NewPipelineBuilder(prometheus.DefaultRegisterer, ff)
 	configLogger := log.With(logger, "component", "configuration")
 	configCoordinator := config.NewCoordinator(
 		*configFile,
@@ -452,7 +461,7 @@ func run() int {
 	configCoordinator.Subscribe(func(conf *config.Config) error {
 		tmpl, err = template.FromGlobs(conf.Templates)
 		if err != nil {
-			return errors.Wrap(err, "failed to parse templates")
+			return fmt.Errorf("failed to parse templates: %w", err)
 		}
 		tmpl.ExternalURL = amURL
 
@@ -519,6 +528,7 @@ func run() int {
 
 		configuredReceivers.Set(float64(len(activeReceivers)))
 		configuredIntegrations.Set(float64(integrationsNum))
+		configuredInhibitionRules.Set(float64(len(conf.InhibitRules)))
 
 		api.Update(conf, func(labels model.LabelSet) {
 			inhibitor.Mutes(labels)
@@ -581,7 +591,8 @@ func run() int {
 
 	webReload := make(chan chan error)
 
-	ui.Register(router, webReload, promlogConfig, logger)
+	ui.Register(router, webReload, logger)
+	reactapp.Register(router, logger)
 
 	mux := api.Register(router, *routePrefix)
 
@@ -589,7 +600,7 @@ func run() int {
 	srvc := make(chan struct{})
 
 	go func() {
-		if err := web.ListenAndServe(srv, webConfig, logger); err != http.ErrServerClosed {
+		if err := web.ListenAndServe(srv, webConfig, logger); !errors.Is(err, http.ErrServerClosed) {
 			level.Error(logger).Log("msg", "Listen error", "err", err)
 			close(srvc)
 		}
@@ -653,7 +664,7 @@ func extURL(logger log.Logger, hostnamef func() (string, error), listen, externa
 		return nil, err
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, errors.Errorf("%q: invalid %q scheme, only 'http' and 'https' are supported", u.String(), u.Scheme)
+		return nil, fmt.Errorf("%q: invalid %q scheme, only 'http' and 'https' are supported", u.String(), u.Scheme)
 	}
 
 	ppref := strings.TrimRight(u.Path, "/")

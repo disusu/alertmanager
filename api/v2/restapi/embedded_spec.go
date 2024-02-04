@@ -348,6 +348,9 @@ func init() {
               "$ref": "#/definitions/gettableSilences"
             }
           },
+          "400": {
+            "$ref": "#/responses/BadRequest"
+          },
           "500": {
             "$ref": "#/responses/InternalServerError"
           }
@@ -1220,6 +1223,12 @@ func init() {
             "description": "Get silences response",
             "schema": {
               "$ref": "#/definitions/gettableSilences"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "type": "string"
             }
           },
           "500": {
