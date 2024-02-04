@@ -21,6 +21,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/pkg/errors"
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/sigv4"
 )

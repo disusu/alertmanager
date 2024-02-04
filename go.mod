@@ -29,6 +29,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/oklog/run v1.1.0
 	github.com/oklog/ulid v1.3.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/common v0.46.0
 	github.com/prometheus/common/assets v0.2.0
@@ -95,5 +96,6 @@ require (
 	golang.org/x/sys v0.16.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
